@@ -55,6 +55,7 @@ private:
     double max_csteer = M_PI / 6 * 0.2;
     double max_speed = 55.0 / 3.6;
     double min_speed = -20.0 / 3.6;
+    double max_cv = 0.2;
     double max_accel = 1.0; 
 
     // MPC dataset
@@ -70,6 +71,7 @@ private:
     // control data
     bool has_odom;
     bool receive_traj_ = false;
+    bool control_a = true;
     double traj_duration_;
     double t_track = 0.0;
     ros::Time start_time_;
@@ -94,30 +96,32 @@ private:
     void getLinearModel(const MPCState& s, double delta);
     void stateTrans(MPCState& s, double a, double delta);
     void predictMotion(void);
-    void solveMPC(void);
-    void solveMPCOS(void);
+    void solveMPCV(void);
+    void solveMPCA(void);
     void getCmd(void);
 
     // utils
     void pub_fake_odom(void)
     {
+        MPCState temp = now_state;
+        stateTrans(temp, output(0, 0), output(1, 0));
         nav_msgs::Odometry new_odom;
 
-        normlize_theta(now_state.theta);
+        normlize_theta(temp.theta);
         new_odom.header.stamp       = ros::Time::now();
 	    new_odom.header.frame_id    = "world";
-        new_odom.pose.pose.position.x  = now_state.x;
-		new_odom.pose.pose.position.y  = now_state.y;
+        new_odom.pose.pose.position.x  = temp.x;
+		new_odom.pose.pose.position.y  = temp.y;
 		new_odom.pose.pose.position.z  = 0;
-		new_odom.twist.twist.linear.x  = now_state.v * cos(now_state.theta);
-		new_odom.twist.twist.linear.y  = now_state.v * sin(now_state.theta);
+		new_odom.twist.twist.linear.x  = temp.v * cos(temp.theta);
+		new_odom.twist.twist.linear.y  = temp.v * sin(temp.theta);
 		new_odom.twist.twist.linear.z  = 0;
-							double omega  = now_state.v * tan(cmd.drive.steering_angle) / wheel_base;
+							double omega  = temp.v * tan(cmd.drive.steering_angle) / wheel_base;
 		new_odom.twist.twist.angular.z = omega;
 
 		//cout << "omega = "<< omega <<endl;
-		Eigen::Vector3d xC(cos(now_state.theta), sin(now_state.theta), 0);
-		Eigen::Vector3d yC(-sin(now_state.theta), cos(now_state.theta), 0);
+		Eigen::Vector3d xC(cos(temp.theta), sin(temp.theta), 0);
+		Eigen::Vector3d yC(-sin(temp.theta), cos(temp.theta), 0);
 		Eigen::Vector3d zC(0, 0, 1);
 		Eigen::Matrix3d R2;
 		R2.col(0) = xC;
@@ -173,8 +177,10 @@ private:
         Eigen::Vector2d now_point(now_state.x, now_state.y);
         double min_dist = (now_point-track_point.head(2)).norm();
         double track_temp = t_track;
+        double interval = now_state.v * dt;
         
-        for (double t_temp = track_temp + 1.0, i=1.0; i < 10; i += 1.0, t_temp += 1.0)
+        for (double t_temp = track_temp + interval, i=1.0; i < 10; i += 1.0, t_temp += interval)
+        // for (double t_temp = track_temp + 1.0, i=1.0; i < 10; i += 1.0, t_temp += 1.0)
         {
             if (t_temp > traj_duration_)
             {
