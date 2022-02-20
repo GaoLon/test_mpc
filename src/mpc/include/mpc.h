@@ -7,12 +7,6 @@
 #include <iostream>
 #include <string.h>
 #include <algorithm>
-
-#include <QpGenData.h>
-#include <QpGenVars.h>
-#include <QpGenResiduals.h>
-#include <GondzioSolver.h>
-#include <QpGenSparseMa27.h>
  
 #include <OsqpEigen/OsqpEigen.h>
 
@@ -195,7 +189,7 @@ private:
                 t_track = t_temp;
             }
         }
-        ROS_INFO("t_track=%f,traj_duration=%f",t_track,traj_duration_);
+        // ROS_INFO("t_track=%f,traj_duration=%f",t_track,traj_duration_);
 
         return t_track;
     }

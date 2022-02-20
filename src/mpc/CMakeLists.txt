@@ -35,9 +35,5 @@ add_executable (mpc src/mpc.cpp src/cubic_spline_planner.cpp)
 target_link_libraries(mpc
     # PRIVATE osqp::osqp
     OsqpEigen::OsqpEigen
-    ooqpgensparse
-    ooqpsparse
-    ooqpgondzio
-    ooqpbase blas ma27 gfortran
     ${catkin_LIBRARIES}
     )

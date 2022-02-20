@@ -6,7 +6,7 @@ void MPC::init(ros::NodeHandle &nh)
 {
     nh.param("mpc/du_threshold", du_th, -1.0);
     nh.param("mpc/dt", dt, -1.0);
-    nh.param("mpc/whell_base", wheel_base, -1.0);
+    nh.param("mpc/wheel_base", wheel_base, -1.0);
     nh.param("mpc/max_iter", max_iter, -1);
     nh.param("mpc/predict_steps", T, -1);
     nh.param("mpc/max_steer", max_steer, -1.0);
@@ -125,6 +125,7 @@ void MPC::cmdCallback(const ros::TimerEvent &e)
             else
                 dref(0, i) = xref(2, i);
 
+            // cout<<"xref: x="<<xref(0, i)<<"   y="<<xref(1, i)<<"   v="<<dref(0, i)<<"   theta="<<xref(3, i)<<endl;
             // cout<<"xref: x="<<xref(0, i)<<"   y="<<xref(1, i)<<"   v="<<xref(2, i)<<"   theta="<<xref(3, i)<<endl;
         }
         smooth_yaw();
@@ -140,7 +141,7 @@ void MPC::cmdCallback(const ros::TimerEvent &e)
         cout << "[Traj server]: invalid time." << endl;
     }
     pos_cmd_pub_.publish(cmd);
-    ROS_INFO("in MPC, the cmd is: a=%f, steer=%f", cmd.drive.acceleration, cmd.drive.steering_angle);
+    // ROS_INFO("in MPC, the cmd is: a=%f, steer=%f", cmd.drive.acceleration, cmd.drive.steering_angle);
     pub_fake_odom();
 }
 
@@ -228,6 +229,7 @@ void MPC::stateTrans(MPCState& s, double a, double delta)
         s.x = s.x + a * cos(s.theta) * dt;
         s.y = s.y + a * sin(s.theta) * dt;
         s.theta = s.theta + a / wheel_base * tan(delta) * dt;
+        s.v = a;
     }
 }
 
@@ -310,7 +312,7 @@ void MPC::solveMPCA(void)
     }
 
     // equality constraints
-    MPCState temp = now_state;
+    MPCState temp = xbar[0];
     getLinearModel(temp, dref(1, 0));
     int my = dimx;
     double b[my];
@@ -477,11 +479,12 @@ void MPC::solveMPCV(void)
     Eigen::VectorXd upperBound;
 
     // first-order
-    for (int i=0, j=0; i<dimx; i+=3, j++)
+    for (int i=0, j=0, k=0; i<dimx; i+=3, j++, k+=2)
     {
         gradient[i] = -2 * Q[0] * xref(0, j);
         gradient[i+1] = -2 * Q[1] * xref(1, j);
         gradient[i+2] = -2 * Q[3] * xref(3, j);
+        gradient[dimx+k] = -2 * Q[2] * dref(0, j);
     }
 
     // second-order
@@ -504,11 +507,11 @@ void MPC::solveMPCV(void)
         dQ[i+1] = Q[1] * 2.0;
         dQ[i+2] = Q[3] * 2.0;
     }
-    dQ[dimx] = dQ[nx-2] = (R[0] + Rd[0]) * 2.0;
+    dQ[dimx] = dQ[nx-2] = (R[0] + Rd[0] + Q[2]) * 2.0;
     dQ[dimx + 1] = dQ[nx-1] = (R[1] + Rd[1]) * 2.0;
     for (int i=dimx+2; i<nx-2; i+=2)
     {
-        dQ[i] = 2 * (R[0] + 2 * Rd[0]);
+        dQ[i] = 2 * (R[0] + 2 * Rd[0] + Q[2]);
         dQ[i+1] = 2 * (R[1] + 2 * Rd[1]);
     }
     for (int i=nx; i<nnzQ; i+=2)
@@ -702,10 +705,8 @@ void MPC::getCmd(void)
 
     for (iter=0; iter<max_iter; iter++)
     {
-        ROS_INFO("predit_motion");
         predictMotion();
         last_output = output;
-        ROS_INFO("begin_solve");
         // solveMPC();
         if (control_a)
             solveMPCA();
