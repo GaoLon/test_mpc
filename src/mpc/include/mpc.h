@@ -40,9 +40,10 @@ private:
     double wheel_base = 2.5;
     int T = 5;
     int max_iter = 3;
-    double Q[4] = {1, 1, 0.5, 0.5};
+    double Q[4] = {10, 10, 2.5, 0.5};
     double R[2] = {0.01, 0.01};
     double Rd[2] = {0.01, 1.0};
+    // double Rd[2] = {0.01, 1.0};
     /// constraints
     double max_steer = M_PI / 4;
     double max_dsteer = M_PI / 6;
@@ -56,7 +57,7 @@ private:
     Eigen::MatrixXd A;
     Eigen::MatrixXd B;
     Eigen::VectorXd C;
-    MPCState xbar[50];
+    MPCState xbar[240];
     Eigen::MatrixXd xref;
     Eigen::MatrixXd dref;
     Eigen::MatrixXd output;
@@ -211,10 +212,10 @@ private:
         sphere.color.g = line_strip.color.g = 0;
         sphere.color.b = line_strip.color.b = 1;
         sphere.color.a = line_strip.color.a = 1;
-        sphere.scale.x = 0.3;
-        sphere.scale.y = 0.3;
-        sphere.scale.z = 0.3;
-        line_strip.scale.x = 0.3 / 2;
+        sphere.scale.x = 0.1;
+        sphere.scale.y = 0.1;
+        sphere.scale.z = 0.1;
+        line_strip.scale.x = 0.1 / 2;
         geometry_msgs::Point pt;
         
         for (auto p:csp_path)
@@ -228,7 +229,9 @@ private:
     }
 
 public:
-	MPC() : csp(vector<double>{0.0, 30.0, 6.0, 20.0, 35.0, 10.0, 0.0, 0.0}, vector<double>{0.0, 0.0, 20.0, 35.0, 20.0, 30.0, 5.0, 0.0}, 1.0) {}
+	MPC() : csp(vector<double>{0.0, 3.0, 2.7, 1.5, 0.3, 0, 3.0, 2.7, 1.5, 0.3, 0.0}, vector<double>{0.0, 0.0, 2.0, 3.0, 4.0, 6.0, 6.0, 4.0, 3.0, 2.0, 0.0}, 0.1) {}
+	// MPC() : csp(vector<double>{0.0, 4.0, 0.8, 2.67, 4.67, 1.33, 0.0, 0.0}, vector<double>{0.0, 0.0, 1.33, 4.67, 2.67, 4.0, 0.67, 0.0}, 0.13) {}
+	// MPC() : csp(vector<double>{0.0, 30.0, 6.0, 20.0, 35.0, 10.0, 0.0, 0.0}, vector<double>{0.0, 0.0, 20.0, 35.0, 20.0, 30.0, 5.0, 0.0}, 1.0) {}
     void init(ros::NodeHandle &nh);
 	~MPC() {}
 };

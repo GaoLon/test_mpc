@@ -21,14 +21,13 @@ void MPC::init(ros::NodeHandle &nh)
     receive_traj_ = false;
     max_csteer = max_dsteer * dt;
     max_cv = max_accel * dt;
-    xref = Eigen::Matrix<double, 4, 50>::Zero();
-    last_output = output = dref = Eigen::Matrix<double, 2, 50>::Zero();
+    xref = Eigen::Matrix<double, 4, 240>::Zero(4, 240);
+    last_output = output = dref = Eigen::Matrix<double, 2, 240>::Zero(2, 240);
 
     pos_cmd_pub_ = nh.advertise<ackermann_msgs::AckermannDriveStamped>("position_cmd", 10);
     vis_pub = nh.advertise<visualization_msgs::Marker>("/following_path", 10);
     fake_odom_pub = nh.advertise<nav_msgs::Odometry>("odometry", 1);
     cmd_timer_ = nh.createTimer(ros::Duration(dt), &MPC::cmdCallback, this);
-    // cmd_timer_ = nh.createTimer(ros::Duration(0.02), &MPC::cmdCallback, this);
     odom_sub_ = nh.subscribe("odom_world", 1, &MPC::rcvOdomCallBack, this);
 
     if (in_test)
@@ -105,15 +104,22 @@ void MPC::cmdCallback(const ros::TimerEvent &e)
                 t_temp+=now_state.v*dt;
             }
 
-            if (t_temp < traj_duration_)
+            double downvt = traj_duration_>2.0?traj_duration_ - 2.0:traj_duration_/2.0; 
+
+            if (t_temp < downvt)
             {
                 temp = csp.get_state(t_temp);
-                xref(2, i) = 10 / 3.6;
+                xref(2, i) = 0.4;
+            }
+            else if (t_temp < traj_duration_)
+            {
+                temp = csp.get_state(t_temp);
+                xref(2, i) = 0.4 * (traj_duration_ - t_temp) / (traj_duration_ - downvt);
             }
             else
             {
                 temp = csp.get_state(traj_duration_);
-                xref(2, i) = 0;
+                xref(2, i) = 0.0;
             }
 
             xref(0, i) = temp[0];
@@ -124,7 +130,8 @@ void MPC::cmdCallback(const ros::TimerEvent &e)
                 dref(0, i) = 0.0;
             else
                 dref(0, i) = xref(2, i);
-
+            
+            dref(1, i) = 0.0;
             // cout<<"xref: x="<<xref(0, i)<<"   y="<<xref(1, i)<<"   v="<<dref(0, i)<<"   theta="<<xref(3, i)<<endl;
             // cout<<"xref: x="<<xref(0, i)<<"   y="<<xref(1, i)<<"   v="<<xref(2, i)<<"   theta="<<xref(3, i)<<endl;
         }
@@ -142,7 +149,7 @@ void MPC::cmdCallback(const ros::TimerEvent &e)
     }
     pos_cmd_pub_.publish(cmd);
     // ROS_INFO("in MPC, the cmd is: a=%f, steer=%f", cmd.drive.acceleration, cmd.drive.steering_angle);
-    pub_fake_odom();
+    // pub_fake_odom();
 }
 
 void MPC::getLinearModel(const MPCState& s, double delta)
@@ -728,7 +735,10 @@ void MPC::getCmd(void)
     }
 
     if (control_a)
+    {
         cmd.drive.acceleration = output(0, 0);
+        cmd.drive.speed = now_state.v + dt * cmd.drive.acceleration;
+    }
     else
         cmd.drive.speed = output(0, 0);
     cmd.drive.steering_angle = output(1, 0);

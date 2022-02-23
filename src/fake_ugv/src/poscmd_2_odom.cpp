@@ -25,6 +25,7 @@ double wheelbase = 2.5;
 double max_steer = 0.7854;
 double min_speed = -5.555;
 double max_speed = 15.278;
+bool control_a = false;
 
 bool rcv_cmd = false;
 
@@ -66,18 +67,37 @@ void simCallback(const ros::TimerEvent &e)
 		delta = -max_steer;
 	}
 
-	x = x + speed * cos(yaw) * time_resolution;
-	y = y + speed * sin(yaw) * time_resolution;
-	yaw = yaw + speed / wheelbase * tan(delta) * time_resolution;
-	speed = speed + ackermann_cmd.drive.acceleration * time_resolution;
+	if (control_a)
+	{
+		x = x + speed * cos(yaw) * time_resolution;
+		y = y + speed * sin(yaw) * time_resolution;
+		yaw = yaw + speed / wheelbase * tan(delta) * time_resolution;
+		speed = speed + ackermann_cmd.drive.acceleration * time_resolution;
 
-	if (speed >= max_speed)
-	{
-		speed = max_speed;
-	}else if (speed<= min_speed)
-	{
-		speed = min_speed;
+		if (speed >= max_speed)
+		{
+			speed = max_speed;
+		}else if (speed<= min_speed)
+		{
+			speed = min_speed;
+		}
 	}
+	else
+	{
+		speed = ackermann_cmd.drive.speed;
+		if (speed >= max_speed)
+		{
+			speed = max_speed;
+		}else if (speed<= min_speed)
+		{
+			speed = min_speed;
+		}
+		x = x + speed * cos(yaw) * time_resolution;
+		y = y + speed * sin(yaw) * time_resolution;
+		yaw = yaw + speed / wheelbase * tan(delta) * time_resolution;
+	}
+
+	
 	normyaw(yaw);    
 
 	new_odom.pose.pose.position.x  = x;
@@ -115,6 +135,7 @@ int main (int argc, char** argv)
 	nh.getParam("simulator/max_steer", max_steer);
 	nh.getParam("simulator/max_speed", max_speed);
 	nh.getParam("simulator/min_speed", min_speed);
+	nh.getParam("simulator/control_a", control_a);
 	  
     wheel_velocity_cmdsub  = nh.subscribe( "command", 1000, rcvVelCmdCallBack );
     		     odom_pub  = nh.advertise<nav_msgs::Odometry>("odometry", 10);
